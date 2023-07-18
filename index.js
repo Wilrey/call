@@ -1,22 +1,35 @@
-// Make sure to enable Placing calls with another app? on Call -> Settings -> Phone Settings
+// Author: Wilfredo Fernandez
 
+// Make sure to enable "Placing calls with another app?" on Call -> Settings -> Phone Settings
+
+// Define constant variables
 const CLIENT_ID = 'ee4696b8-16c4-40ce-87ae-7322597880ac';
 const ENVIRONMENT = 'mypurecloud.de';
+
+// Select HTML elements
 const form = document.querySelector("#login");
 const phoneInput = document.querySelector("#phone");
 const info = document.querySelector(".alert");
 
-document.addEventListener("DOMContentLoaded", init);
+// Attach event listener to form submit
+form.addEventListener("submit", process);
 
-function init() {
-  form.addEventListener("submit", process);
-  if (window.location.hash) {
-    handleAPIRequest();
-  } else {
-    redirectForAuthorization();
-  }
+/**
+ * Extracts the value of a URL parameter by name
+ * @param {string} name - The name of the parameter
+ * @returns {string} - The value of the parameter or an empty string if not found
+ */
+function getParameterByName(name) {
+  name = name.replace(/[\\[]/, "\\[").replace(/[\]]/, "\\]");
+  const regex = new RegExp("[\\#&]" + name + "=([^&#]*)");
+  const results = regex.exec(location.hash);
+  return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
 }
 
+/**
+ * Handles the form submission event
+ * @param {Event} event - The form submission event
+ */
 function process(event) {
   event.preventDefault();
   const phoneNumber = phoneInput.value;
@@ -25,52 +38,49 @@ function process(event) {
   placeCall(phoneNumber, queue);
 }
 
-function handleAPIRequest() {
+/**
+ * Places a call using AJAX
+ * @param {string} phone - The phone number
+ * @param {string} queue - The queue ID
+ */
+function placeCall(phone, queue) {
   const token = getParameterByName('access_token');
-  const apiRequests = [
-    $.ajax({
-      url: `https://api.${ENVIRONMENT}/api/v2/conversations/calls`,
-      type: "post",
-      data: JSON.stringify({
-        "phoneNumber": phoneInput.value,
-        "callFromQueueId": '07b54d9e-b08b-4587-a4bd-7e0055ebed0b'
-      }),
-      contentType: "application/json; charset=utf-8",
-      beforeSend: function(xhr) {
-        xhr.setRequestHeader('Authorization', 'bearer ' + token);
-      }
+  $.ajax({
+    url: `https://api.${ENVIRONMENT}/api/v2/conversations/calls`,
+    type: "post",
+    data: JSON.stringify({
+      "phoneNumber": phone,
+      "callFromQueueId": queue
     }),
-    $.ajax({
-      url: `https://api.${ENVIRONMENT}/api/v2/users/me`,
-      type: "GET",
-      beforeSend: function(xhr) {
-        xhr.setRequestHeader('Authorization', 'bearer ' + token);
-      }
-    })
-  ];
-
-  Promise.all(apiRequests)
-    .then(function(results) {
-      console.log(results[0]); // Result of the first API request
-      console.log(results[1]); // Result of the second API request
-    })
-    .catch(function(error) {
-      console.error(error);
-    });
+    contentType: "application/json; charset=utf-8",
+    beforeSend: function(xhr) {
+      xhr.setRequestHeader('Authorization', 'bearer ' + token);
+    },
+    success: function(data) {
+      console.log(data);
+    }
+  });
 }
 
-function redirectForAuthorization() {
+// Check if there is a hash in the URL
+if (window.location.hash) {
+  const token = getParameterByName('access_token');
+  console.log("token" + token);
+  $.ajax({
+    url: `https://api.${ENVIRONMENT}/api/v2/users/me`,
+    type: "GET",
+    beforeSend: function(xhr) {
+      xhr.setRequestHeader('Authorization', 'bearer ' + token);
+    },
+    success: function(data) {
+      console.log(data);
+    }
+  });
+} else {
   const queryStringData = {
     response_type: "token",
     client_id: CLIENT_ID,
-    redirect_uri: "https://wilrey.github.io/call/index.html"
+    redirect_uri: "https://wilrey.github.io/placeCall/index.html"
   };
   window.location.replace(`https://login.${ENVIRONMENT}/oauth/authorize?` + jQuery.param(queryStringData));
-}
-
-function getParameterByName(name) {
-  name = name.replace(/[\\[]/, "\\[").replace(/[\]]/, "\\]");
-  const regex = new RegExp("[\\#&]" + name + "=([^&#]*)");
-  const results = regex.exec(location.hash);
-  return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
 }
